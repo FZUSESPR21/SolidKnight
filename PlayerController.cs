@@ -7,10 +7,6 @@ public class PlayerController : MonoBehaviour
     private Rigidbody2D rb;
     private Collider2D coll;
     private Animator anim;
-    
-
-    private float hp;
-    private float mp;
 
     [Header("生命")]
     [SerializeField]
@@ -19,7 +15,7 @@ public class PlayerController : MonoBehaviour
     [Header("能量")]
     [SerializeField]
     private float maxMp;
-    
+
     private float horizontalMove;
 
     [Header("速度")]
@@ -53,7 +49,7 @@ public class PlayerController : MonoBehaviour
     public bool doubleJumpAble;
 
     //isJump区别攀爬和第二段跳跃
-    private bool isGround, isJump, isDashing, isClimbing;
+    private bool isGround, isJump, isDashing;
 
     bool jumpPressed;
 
@@ -69,16 +65,21 @@ public class PlayerController : MonoBehaviour
     [Header("盒子size")]
     private Vector2 boxSize;
 
+    [Header("Dash参数")]
+    public float dashTime;
+    private float lastDash = -10f;
+    public float dashInterval;
+    private float dashTimeLeft;
+    public float dashSpeed;
+    private float tsped;
+    [Header("CD的UI软件")]
+    public Image cdImage;
 
-    [Header("Hurt")]
-    public float hurtLength; //MARK 自定义计数器长度
-    private float hurtCount;//MARK 计数器 每帧减少
-    [HideInInspector] public bool isAttacked;
 
     // Start is called before the first frame update
     void Start()
     {
-       
+
         hp = maxHp;
         mp = maxMp;
         currentSpeedX = 0;
@@ -90,7 +91,10 @@ public class PlayerController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-       
+        if (Input.GetKeyDown(KeyCode.Z))
+        {
+            wave();
+        }
 
         if (Input.GetKeyDown(KeyCode.C) && jumpCount > 0)
         {
@@ -115,11 +119,26 @@ public class PlayerController : MonoBehaviour
             rb.drag = 0;
         }
 
-        GroundMovement();
-        BetterJump();
-       
-    }
+        Dash();
 
+        if (isDashing)
+            return;
+
+        GroundMovement();
+       
+        BetterJump();
+        
+        
+        
+       BetterJump();
+        
+        jumpPressed = false;
+
+        if (rb.velocity.y <= -50)
+        {
+            rb.drag = -Physics2D.gravity.y / 8;
+        }
+    }
 
 
     void GroundMovement()
@@ -186,7 +205,40 @@ public class PlayerController : MonoBehaviour
 
 
 
-   
+    void ReadyToDash()
+    {
+        isDashing = true;
+        dashTimeLeft = dashTime;
+        lastDash = Time.time;
+        cdImage.fillAmount = 1.0f;
+    }
+    void Dash()
+    {
+        if (isDashing)
+        {
+            if (dashTimeLeft > 0)
+            {
+                if (rushAble)
+                {
+                    if (transform.localScale.x > 0)
+                    {
+                        rb.velocity = new Vector2(dashSpeed, 0);
+                    }
+                    else
+                    {
+                        rb.velocity = new Vector2(-dashSpeed, 0);
+                    }
+                }
+
+                dashTimeLeft -= Time.deltaTime;
+                if (rushAble)
+                    ShadowPool.instance.GetFromPool();
+            }
+            else
+            {
+                isDashing = false;
+            }
+        }
+    }
+
 }
-
-
