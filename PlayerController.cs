@@ -7,19 +7,7 @@ public class PlayerController : MonoBehaviour
     private Rigidbody2D rb;
     private Collider2D coll;
     private Animator anim;
-    
-
-    private float hp;
-    private float mp;
-
-    [Header("生命")]
-    [SerializeField]
-    private float maxHp;
-
-    [Header("能量")]
-    [SerializeField]
-    private float maxMp;
-    
+   
     private float horizontalMove;
 
     [Header("速度")]
@@ -52,6 +40,10 @@ public class PlayerController : MonoBehaviour
     [SerializeField]
     public bool doubleJumpAble;
 
+    [Header("蹬墙回跳速度")]
+    [SerializeField] private float speedX;
+    private float currentSpeedX;
+
     //isJump区别攀爬和第二段跳跃
     private bool isGround, isJump, isDashing, isClimbing;
 
@@ -69,6 +61,13 @@ public class PlayerController : MonoBehaviour
     [Header("盒子size")]
     private Vector2 boxSize;
 
+    [Header("Dash参数")]
+    public float dashTime;
+    private float lastDash = -10f;
+    public float dashInterval;
+    private float dashTimeLeft;
+    public float dashSpeed;
+    private float tsped;
 
     [Header("Hurt")]
     public float hurtLength; //MARK 自定义计数器长度
@@ -78,7 +77,8 @@ public class PlayerController : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-       
+      
+
         hp = maxHp;
         mp = maxMp;
         currentSpeedX = 0;
@@ -90,7 +90,11 @@ public class PlayerController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-       
+        
+        if (Input.GetKeyDown(KeyCode.A))
+        {
+            wave();
+        }
 
         if (Input.GetKeyDown(KeyCode.C) && jumpCount > 0)
         {
@@ -100,6 +104,18 @@ public class PlayerController : MonoBehaviour
         {
             if (Time.time >= (dashInterval + lastDash))
                 ReadyToDash();
+        }     
+        if (Input.GetKey(KeyCode.Z))
+        {
+            attackTime += Time.deltaTime;
+        }
+        else
+        {
+            if (attackTime > 1)
+            {                
+                hit.SetActive(true);
+            }
+            attackTime = 0;
         }
 
         cdImage.fillAmount -= 1.0f / dashInterval * Time.deltaTime;
@@ -109,28 +125,54 @@ public class PlayerController : MonoBehaviour
     {
         tsped = rb.velocity.y;
         isGround = Physics2D.OverlapBox(groundCheck.position, boxSize, 0, ground);
+        isClimbing = Physics2D.OverlapCircle(wallCheck.position, .1f, ground);
 
         if (isGround)
         {
             rb.drag = 0;
         }
 
+        Dash();
+
+        if (isDashing)
+            return;
+
         GroundMovement();
-        BetterJump();
-       
+        if (isClimbing)
+        {
+            if (climbAble)
+                ClimbJump();
+            else BetterJump();
+        }
+        else
+        {
+            BetterJump();
+        }
+        jumpPressed = false;
+
+        if (rb.velocity.y <= -50)
+        {
+            rb.drag = -Physics2D.gravity.y / 8;
+        }
+        SwitchAnim();
     }
 
-
+ 
 
     void GroundMovement()
-    {
+    { 
         horizontalMove = Input.GetAxisRaw("Horizontal");//只返回-1，0，1
+
+        if (hit != null && hit.activeSelf)
+        {
+            horizontalMove = 0;
+        }
         rb.velocity = new Vector2(horizontalMove * speed + currentSpeedX, rb.velocity.y);
 
-        if (horizontalMove != 0)
-        {
-            transform.localScale = new Vector3(horizontalMove, 1, 1);
-        }
+
+       transform.localScale = new Vector3(horizontalMove, 1, 1);
+          
+        
 
         if (currentSpeedX > 0)
         {
@@ -147,6 +189,49 @@ public class PlayerController : MonoBehaviour
 
     }
 
+    void ClimbJump()
+    {
+
+        jumpCount = 2;
+        isJump = false;
+
+        if (jumpPressed && isClimbing)
+        {
+            if (isGround)
+            {
+                rb.velocity = new Vector2(rb.velocity.x, jumpForce);
+
+            }
+            else
+            {
+                rb.velocity = new Vector2(speedX, jumpForce);
+                currentSpeedX = speedX * transform.localScale.x;
+            }
+        }
+        jumpPressed = false;
+
+        if (rb.velocity.x > 0)
+        {
+            transform.localScale = new Vector3(1, 1, 1);
+        }
+        else if (rb.velocity.x < 0)
+        {
+            transform.localScale = new Vector3(-1, 1, 1);
+        }
+
+
+        if (rb.velocity.y >= -50 && rb.velocity.y < 0)
+        {
+            //Debug.Log(rb.velocity.y);
+            rb.velocity += Vector2.up * Physics2D.gravity.y * 2.5f * Time.deltaTime;
+        }
+        else if (rb.velocity.y > 0 && !Input.GetKey(KeyCode.C))
+        {
+            //Debug.Log(rb.velocity.y);
+            rb.velocity += Vector2.up * Physics2D.gravity.y * jumpPa * Time.deltaTime;
+        }
+
+    }
 
     void BetterJump()//跳跃
     {
@@ -185,8 +270,39 @@ public class PlayerController : MonoBehaviour
     }
 
 
+    void ReadyToDash()
+    {
+        isDashing = true;
+        dashTimeLeft = dashTime;
+        lastDash = Time.time;
+        cdImage.fillAmount = 1.0f;
+    }
+    void Dash()
+    {
+        if (isDashing)
+        {
+            if (dashTimeLeft > 0)
+            {
+                if (rushAble)
+                {
+                    if (transform.localScale.x > 0)
+                    {
+                        rb.velocity = new Vector2(dashSpeed, 0);
+                    }
+                    else
+                    {
+                        rb.velocity = new Vector2(-dashSpeed, 0);
+                    }
+                }
 
-   
+                dashTimeLeft -= Time.deltaTime;
+                if (rushAble)
+                    ShadowPool.instance.GetFromPool();
+            }
+            else
+            {
+                isDashing = false;
+            }
+        }
+    }
 }
-
-
