@@ -7,10 +7,11 @@ public class InventoryManager : MonoBehaviour
 {
     static InventoryManager instance;
 
-    public Inventory myBag;
+    public ItemConf itemConf;
+    public List<string> itemNames;
     public GameObject slotGrid;
     public Slot slotPrefeb;
-    public Text itemInfo;
+    public Text itemDesription;
 
     private void Awake()
     {
@@ -19,25 +20,49 @@ public class InventoryManager : MonoBehaviour
         instance = this;
     }
 
+    private void Start()
+    {
+        GlobalData.SaveName = "0";
+        if (!GlobalData.HasObject("itemNamesList"))
+        {
+            itemNames = new List<string>();
+            GlobalData.SetObject("itemNamesList", itemNames);
+            AddNewItem("cap");
+            AddNewItem("weapon");
+        }
+        else
+            itemNames = GlobalData.GetData<List<string>>("itemNamesList");
+
+    }
+
     public void OnEnable()
     {
+        //test   
+        Debug.Log("enable");
+        instance.itemDesription.text = "";
         RefreshItem();
-        instance.itemInfo.text = "";
     }
 
     public static void UpdateItemInfo(string itemDescription)
     {
-        instance.itemInfo.text = itemDescription;
+        instance.itemDesription.text = itemDescription;
     }
 
-    //向背包栏添加物品
-    public static void CreateNewItem(Item item)
+    //向背包列表添加item
+    public static void AddNewItem(string itemName)
+    {
+        instance.itemNames.Add(itemName);
+
+    }
+
+    //向背包栏界面添加item
+    public static void CreateNewItem(BagItem item)
     {
         Slot newItem = Instantiate(instance.slotPrefeb, instance.slotGrid.transform.position, Quaternion.identity);
         newItem.gameObject.transform.SetParent(instance.slotGrid.transform);
         newItem.slotItem = item;
-        newItem.slotImage.sprite = item.itemImage;
-        newItem.slotNum.text = item.itemNum.ToString();
+        newItem.slotImage.sprite = item.Icon;
+
     }
 
     //刷新背包栏物品
@@ -50,9 +75,12 @@ public class InventoryManager : MonoBehaviour
             Destroy(instance.slotGrid.transform.GetChild(i).gameObject);
         }
 
-        for (int i = 0; i < instance.myBag.itemList.Count; i++)
+        foreach (string iName in instance.itemNames)
         {
-            CreateNewItem(instance.myBag.itemList[i]);
+            BagItem bagItem = instance.itemConf.GetItemByName(iName);
+            CreateNewItem(bagItem);
         }
     }
+
+
 }

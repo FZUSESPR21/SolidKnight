@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -7,7 +7,27 @@ public class PlayerController : MonoBehaviour
     private Rigidbody2D rb;
     private Collider2D coll;
     private Animator anim;
-   
+
+    public GameObject sword;
+    public GameObject below_sword;
+    public GameObject up_sword;
+    private GameObject currentSword;
+    public GameObject hit;
+
+    //蓄力时间
+    private float attackTime;
+
+    private float hp;
+    private float mp;
+
+    [Header("生命")]
+    [SerializeField]
+    private float maxHp;
+
+    [Header("能量")]
+    [SerializeField]
+    private float maxMp;
+    
     private float horizontalMove;
 
     [Header("速度")]
@@ -49,8 +69,7 @@ public class PlayerController : MonoBehaviour
 
     bool jumpPressed;
 
-    [Header("最大跳跃次数")]
-    [SerializeField]
+    
     private int jumpCount;
 
     [Header("Better Jump重力系数")]
@@ -68,8 +87,11 @@ public class PlayerController : MonoBehaviour
     private float dashTimeLeft;
     public float dashSpeed;
     private float tsped;
+    [Header("CD的UI软件")]
+    public Image cdImage;
 
-    [Header("Hurt")]
+
+    [Header("Hurt无敌")]
     public float hurtLength; //MARK 自定义计数器长度
     private float hurtCount;//MARK 计数器 每帧减少
     [HideInInspector] public bool isAttacked;
@@ -77,20 +99,37 @@ public class PlayerController : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-      
-
-        hp = maxHp;
-        mp = maxMp;
-        currentSpeedX = 0;
         rb = GetComponent<Rigidbody2D>();
         coll = GetComponent<Collider2D>();
         anim = GetComponent<Animator>();
+        attackTime = 0;
+        /* sword = transform.Find("wavePosition/sword").gameObject;
+         below_sword = transform.Find("wavePosition/below_sword").gameObject;
+         up_sword= transform.Find("wavePosition/up_sword").gameObject;
+         hit = transform.Find("wavePosition/attack").gameObject;*/
+        hp = maxHp;
+        mp = maxMp;
+        currentSpeedX = 0;
+        hurtCount = hurtLength;
+        isAttacked = false;
+
+        Debug.Log(rb);
+
     }
 
     // Update is called once per frame
     void Update()
     {
-        
+        //受击无敌
+        if (isAttacked)
+        {
+            hurtCount -= Time.deltaTime;
+            if (hurtCount <= 0)
+            {
+                isAttacked = false;
+            }
+        }
+
         if (Input.GetKeyDown(KeyCode.A))
         {
             wave();
@@ -104,7 +143,25 @@ public class PlayerController : MonoBehaviour
         {
             if (Time.time >= (dashInterval + lastDash))
                 ReadyToDash();
-        }     
+        }
+
+        if (Input.GetKeyDown(KeyCode.Z))
+        {
+            if (Input.GetKey(KeyCode.DownArrow)&&!isGround)
+            {
+                currentSword = below_sword;
+               // Debug.Log("down");
+            }
+            else if(Input.GetKey(KeyCode.UpArrow))
+            {
+                currentSword = up_sword;
+            }
+            else
+            {
+                currentSword = sword;
+            }          
+            Attack();
+        }
         if (Input.GetKey(KeyCode.Z))
         {
             attackTime += Time.deltaTime;
@@ -123,9 +180,11 @@ public class PlayerController : MonoBehaviour
 
     private void FixedUpdate()
     {
+        //Debug.Log(rb);
         tsped = rb.velocity.y;
         isGround = Physics2D.OverlapBox(groundCheck.position, boxSize, 0, ground);
         isClimbing = Physics2D.OverlapCircle(wallCheck.position, .1f, ground);
+        Debug.Log(isClimbing);
 
         if (isGround)
         {
@@ -157,7 +216,11 @@ public class PlayerController : MonoBehaviour
         SwitchAnim();
     }
 
- 
+    private void OnDrawGizmos()
+    {
+        Gizmos.DrawWireCube(groundCheck.position, boxSize);
+        Gizmos.color = Color.black;
+    }
 
     void GroundMovement()
     { 
@@ -170,8 +233,27 @@ public class PlayerController : MonoBehaviour
         rb.velocity = new Vector2(horizontalMove * speed + currentSpeedX, rb.velocity.y);
 
 
-       transform.localScale = new Vector3(horizontalMove, 1, 1);
-          
+        if (currentSword!=null&&currentSword.activeSelf)
+        {
+           /* if (transform.localScale.x != horizontalMove)
+            {
+
+            }*/
+            //horizontalMove = 0;
+        }
+        else
+        {
+            if (horizontalMove != 0)
+            {
+                if (horizontalMove > 0)
+                    transform.localScale = new Vector3(Mathf.Abs(transform.localScale.x), transform.localScale.y, 1);
+                else
+                {
+                   
+                    transform.localScale = new Vector3(-Mathf.Abs(transform.localScale.x), transform.localScale.y, 1);
+                }
+            }
+        }
         
 
         if (currentSpeedX > 0)
@@ -189,6 +271,10 @@ public class PlayerController : MonoBehaviour
 
     }
 
+    void Attack()
+    {
+        currentSword.SetActive(true);
+    }
     void ClimbJump()
     {
 
@@ -206,17 +292,19 @@ public class PlayerController : MonoBehaviour
             {
                 rb.velocity = new Vector2(speedX, jumpForce);
                 currentSpeedX = speedX * transform.localScale.x;
+                Debug.Log("current" + currentSpeedX);
             }
         }
+        
         jumpPressed = false;
 
         if (rb.velocity.x > 0)
         {
-            transform.localScale = new Vector3(1, 1, 1);
+            transform.localScale = new Vector3(Mathf.Abs(transform.localScale.x), transform.localScale.y, 1);
         }
         else if (rb.velocity.x < 0)
         {
-            transform.localScale = new Vector3(-1, 1, 1);
+            transform.localScale = new Vector3(-Mathf.Abs(transform.localScale.x), transform.localScale.y, 1);
         }
 
 
@@ -269,6 +357,28 @@ public class PlayerController : MonoBehaviour
 
     }
 
+    void SwitchAnim()//动画切换
+    {
+        /*anim.Play("Idle");
+        anim.SetFloat("running", Mathf.Abs(rb.velocity.x));
+
+        if (isGround&& Mathf.Abs(rb.velocity.x)!=0)
+        {
+            anim.Play("Run");
+           
+
+        }
+        else if (!isGround && rb.velocity.y > 0)
+        {
+            anim.Play("Jump");
+            
+        }
+        else if (!isGround && rb.velocity.y < 0)
+        {
+            anim.Play("Fall");
+            
+        }*/
+    }
 
     void ReadyToDash()
     {
@@ -277,7 +387,7 @@ public class PlayerController : MonoBehaviour
         lastDash = Time.time;
         cdImage.fillAmount = 1.0f;
     }
-    void Dash()
+    void Dash() 
     {
         if (isDashing)
         {
@@ -304,5 +414,39 @@ public class PlayerController : MonoBehaviour
                 isDashing = false;
             }
         }
+    }
+
+    void wave()
+    {
+        if (mp > 0)
+        {
+            mp -= 1;
+            Transform a = Instantiate(transform.Find("wavePosition/wave"));
+            a.gameObject.SetActive(true);
+        }        
+    }
+
+    public void getAttacked(float damage)
+    {
+        if (!isAttacked&&!isDashing)
+        {
+            
+            hp -= damage;
+            maxHp = hp;
+
+            if (hp <= 0)
+            {
+                //death
+            }
+            else
+            {
+                //hurt
+
+            }
+
+            hurtCount = hurtLength;
+            isAttacked = true;
+        }
+        
     }
 }
